@@ -11,7 +11,7 @@ genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 math_engine = wolframalpha.Client(os.environ.get("WOLFRAM_APP_ID"))
 
 class SocraticGPT:
-    def __init__(self, role, n_round=10, model="gemini-1.5-flash"):
+    def __init__(self, role, n_round=10, model="gemini-2.5-flash"):
         self.role = role
         self.model = model
         self.n_round = n_round
