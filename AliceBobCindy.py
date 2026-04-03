@@ -1,16 +1,17 @@
 import os
 import re
 import time
-import openai
+import google.generativeai as genai
 import wolframalpha
-from openai.error import InvalidRequestError
+from dotenv import load_dotenv
 
-openai.organization = os.environ.get("OPENAI_ORG")
-openai.api_key = os.environ.get("OPENAI_API_KEY")
+load_dotenv()
+
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 math_engine = wolframalpha.Client(os.environ.get("WOLFRAM_APP_ID"))
 
 class SocraticGPT:
-    def __init__(self, role, n_round=10, model="gpt-3.5-turbo"):
+    def __init__(self, role, n_round=10, model="gemini-1.5-flash"):
         self.role = role
         self.model = model
         self.n_round = n_round
@@ -53,26 +54,29 @@ class SocraticGPT:
             
     def get_response(self, temperature=None):
         try:
+            contents = []
+            for msg in self.history:
+                role = "model" if msg["role"] == "assistant" else "user"
+                if contents and contents[-1]["role"] == role:
+                    contents[-1]["parts"][0] += "\n\n" + msg["content"]
+                else:
+                    contents.append({"role": role, "parts": [msg["content"]]})
+            
+            gemini_model = genai.GenerativeModel(self.model)
+            generation_config = {}
             if temperature:
-                res = openai.ChatCompletion.create(
-                    model = self.model,
-                    messages = self.history,
-                    temperature = temperature
-                )
-            else:
-                res = openai.ChatCompletion.create(
-                    model = self.model,
-                    messages = self.history
-                )
-            msg = res.get("choices")[0]["message"]["content"]
+                generation_config["temperature"] = temperature
+                
+            res = gemini_model.generate_content(contents, generation_config=generation_config)
+            msg = res.text
 
-        except InvalidRequestError as e:
-            if "maximum context length" in str(e):
+        except Exception as e:
+            if "quota" in str(e).lower() or "limit" in str(e).lower():
                 # Handle the maximum context length error here
                 msg = "The context length exceeds my limit... "
             else:
                 # Handle other errors here
-                msg = f"I enconter an when using my backend model.\n\n Error: {str(e)}"
+                msg = f"I enconter an error when using my backend model.\n\n Error: {str(e)}"
         
         
         self.history.append({
@@ -87,20 +91,24 @@ class SocraticGPT:
                 "content": "The above is the conversation between Socrates and Theaetetus. You job is to challenge their anwers. They were likely to have made multiple mistakes. Please correct them. \nRemember to start your answer with \"NO\" if you think so far their discussion is alright, otherwise start with \"Here are my suggestions:\""
         }
         try:
+            contents = []
+            for msg in (self.history + [pf_template]):
+                role = "model" if msg["role"] == "assistant" else "user"
+                if contents and contents[-1]["role"] == role:
+                    contents[-1]["parts"][0] += "\n\n" + msg["content"]
+                else:
+                    contents.append({"role": role, "parts": [msg["content"]]})
+                    
+            gemini_model = genai.GenerativeModel(self.model)
+            generation_config = {}
             if temperature:
-                res = openai.ChatCompletion.create(
-                    model = self.model,
-                    messages = self.history + [pf_template],
-                    temperature = temperature
-                )
-            else:
-                res = openai.ChatCompletion.create(
-                    model = self.model,
-                    messages = self.history + [pf_template]
-                )
-            msg = res.get("choices")[0]["message"]["content"]
-        except InvalidRequestError as e:
-            if "maximum context length" in str(e):
+                generation_config["temperature"] = temperature
+                
+            res = gemini_model.generate_content(contents, generation_config=generation_config)
+            msg = res.text
+            
+        except Exception as e:
+            if "quota" in str(e).lower() or "limit" in str(e).lower():
                 # Handle the maximum context length error here
                 msg = "The context length exceeds my limit... "
             else:
@@ -175,9 +183,9 @@ def write_Python(text):
     matches2 = re.findall(pattern2, text)
 
     if len(matches2) > 0:
-    	matches = matches2
+        matches = matches2
     else:
-    	matches = matches + matches2
+        matches = matches + matches2
 
     pattern3 = r"(@write_code\s*(.*))"
     check_write = re.findall(pattern3, text)
