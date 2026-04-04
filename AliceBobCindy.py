@@ -1,13 +1,14 @@
 import os
 import re
 import time
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import wolframalpha
 from dotenv import load_dotenv
 
 load_dotenv()
 
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 math_engine = wolframalpha.Client(os.environ.get("WOLFRAM_APP_ID"))
 
 class SocraticGPT:
@@ -57,17 +58,20 @@ class SocraticGPT:
             contents = []
             for msg in self.history:
                 role = "model" if msg["role"] == "assistant" else "user"
-                if contents and contents[-1]["role"] == role:
-                    contents[-1]["parts"][0] += "\n\n" + msg["content"]
+                if contents and contents[-1].role == role:
+                    contents[-1].parts[0].text += "\n\n" + msg["content"]
                 else:
-                    contents.append({"role": role, "parts": [msg["content"]]})
+                    contents.append(types.Content(role=role, parts=[types.Part.from_text(text=msg["content"])]))
             
-            gemini_model = genai.GenerativeModel(self.model)
-            generation_config = {}
+            config = types.GenerateContentConfig()
             if temperature:
-                generation_config["temperature"] = temperature
+                config.temperature = temperature
                 
-            res = gemini_model.generate_content(contents, generation_config=generation_config)
+            res = client.models.generate_content(
+                model=self.model,
+                contents=contents,
+                config=config
+            )
             msg = res.text
 
         except Exception as e:
@@ -94,17 +98,20 @@ class SocraticGPT:
             contents = []
             for msg in (self.history + [pf_template]):
                 role = "model" if msg["role"] == "assistant" else "user"
-                if contents and contents[-1]["role"] == role:
-                    contents[-1]["parts"][0] += "\n\n" + msg["content"]
+                if contents and contents[-1].role == role:
+                    contents[-1].parts[0].text += "\n\n" + msg["content"]
                 else:
-                    contents.append({"role": role, "parts": [msg["content"]]})
+                    contents.append(types.Content(role=role, parts=[types.Part.from_text(text=msg["content"])]))
                     
-            gemini_model = genai.GenerativeModel(self.model)
-            generation_config = {}
+            config = types.GenerateContentConfig()
             if temperature:
-                generation_config["temperature"] = temperature
+                config.temperature = temperature
                 
-            res = gemini_model.generate_content(contents, generation_config=generation_config)
+            res = client.models.generate_content(
+                model=self.model,
+                contents=contents,
+                config=config
+            )
             msg = res.text
             
         except Exception as e:
