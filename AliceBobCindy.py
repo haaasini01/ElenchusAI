@@ -67,20 +67,31 @@ class SocraticGPT:
             if temperature:
                 config.temperature = temperature
                 
-            res = client.models.generate_content(
-                model=self.model,
-                contents=contents,
-                config=config
-            )
-            msg = res.text
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    res = client.models.generate_content(
+                        model=self.model,
+                        contents=contents,
+                        config=config
+                    )
+                    msg = res.text
+                    break
+                except Exception as api_err:
+                    err_msg = str(api_err).lower()
+                    if attempt < max_retries - 1 and ("429" in err_msg or "quota" in err_msg or "limit" in err_msg or "retry" in err_msg):
+                        time.sleep(10)
+                    else:
+                        raise api_err
 
         except Exception as e:
-            if "quota" in str(e).lower() or "limit" in str(e).lower():
+            err_str = str(e).lower()
+            if "token limit" in err_str or "context length" in err_str or "maximum context" in err_str:
                 # Handle the maximum context length error here
                 msg = "The context length exceeds my limit... "
             else:
                 # Handle other errors here
-                msg = f"I enconter an error when using my backend model.\n\n Error: {str(e)}"
+                msg = f"I encounter an error when using my backend model.\n\n Error: {str(e)}"
         
         
         self.history.append({
@@ -107,20 +118,31 @@ class SocraticGPT:
             if temperature:
                 config.temperature = temperature
                 
-            res = client.models.generate_content(
-                model=self.model,
-                contents=contents,
-                config=config
-            )
-            msg = res.text
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    res = client.models.generate_content(
+                        model=self.model,
+                        contents=contents,
+                        config=config
+                    )
+                    msg = res.text
+                    break
+                except Exception as api_err:
+                    err_msg = str(api_err).lower()
+                    if attempt < max_retries - 1 and ("429" in err_msg or "quota" in err_msg or "limit" in err_msg or "retry" in err_msg):
+                        time.sleep(10)
+                    else:
+                        raise api_err
             
         except Exception as e:
-            if "quota" in str(e).lower() or "limit" in str(e).lower():
+            err_str = str(e).lower()
+            if "token limit" in err_str or "context length" in err_str or "maximum context" in err_str:
                 # Handle the maximum context length error here
                 msg = "The context length exceeds my limit... "
             else:
                 # Handle other errors here
-                msg = f"I enconter an error when using my backend model.\n\n Error: {str(e)}"
+                msg = f"I encounter an error when using my backend model.\n\n Error: {str(e)}"
 
         if msg[:2] in ["NO", "No", "no"]:
             return None
